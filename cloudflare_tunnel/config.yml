@@ -1,0 +1,7 @@
+tunnel: printers-server
+credentials-file: C:\Users\Admin\.cloudflared\f885d288-e256-4e54-b263-11ef03bc99b5.json
+
+ingress:
+  - hostname: printers-server.tuopticasv.com
+    service: http://127.0.0.1:9080
+  - service: http_status:404

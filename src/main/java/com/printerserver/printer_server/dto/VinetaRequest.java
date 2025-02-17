@@ -3,6 +3,11 @@ package com.printerserver.dto;
 public class VinetaRequest {
     private String printerName;
     private String zplData;
+    private String token;
+
+    public String getToken(){
+        return token;
+    }
 
     public String getZPLcode() {
         return zplData;

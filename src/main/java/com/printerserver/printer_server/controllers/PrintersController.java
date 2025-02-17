@@ -1,6 +1,7 @@
 package com.printerserver.controllers;
 import com.printerserver.dto.PdfRequest;
 import com.printerserver.dto.VinetaRequest;
+import com.printerserver.dto.Token;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,8 +49,14 @@ import java.awt.print.PrinterJob;
 public class PrintersController {
 
     @GetMapping("/printers")
-    public List<Map<String, String>> printers() {
+    public List<Map<String, String>> printers(@RequestParam String token) {
         List<Map<String, String>> printerList = new ArrayList<>();
+        if(token == null){
+            return printerList;
+        }
+        if (!"Sini8fiuWeib2obug1".equals(token)) {
+            return printerList;
+        }
         PrintService[] printServices = PrintServiceLookup.lookupPrintServices(null, null);
         
         for (PrintService printer : printServices) {
@@ -74,7 +81,7 @@ public class PrintersController {
                (acceptingJobs != null && acceptingJobs == PrinterIsAcceptingJobs.ACCEPTING_JOBS);
     }
 
-    @GetMapping("/printTxt")
+    /* @GetMapping("/printTxt")
     public String printDocument(@RequestParam String printerName, @RequestBody String documentContent) {
         try {
             // Buscar la impresora por nombre
@@ -99,9 +106,9 @@ public class PrintersController {
             e.printStackTrace();
             return "Error al enviar el trabajo de impresión: " + e.getMessage();
         }
-    }
+    } */
 
-    @GetMapping("/printImage")
+    /* @GetMapping("/printImage")
     public String printImage(@RequestParam String printerName) {
         try {
             URL imageUrl = new URL("https://cdn.pixabay.com/photo/2022/12/04/06/32/programmer-7633812_1280.jpg");
@@ -128,14 +135,23 @@ public class PrintersController {
             e.printStackTrace();
             return "Error al enviar el trabajo de impresión: " + e.getMessage();
         }
-    }
+    } */
 
     @PostMapping("/printPdf")
     public String printPdf(@RequestBody PdfRequest request) {
         try {
+            String token = request.getToken();
+            if (!"Sini8fiuWeib2obug1".equals(token)) {
+                return "Acceso denegado.";
+            }
             //Descargar el PDF desde la URL
             String pdfUrl = request.getPdfUrl();
             String printerName = request.getPrinterName();
+
+            if (pdfUrl == null || pdfUrl.isEmpty()) {
+                return "La URL del PDF no es válida.";
+            }
+
             URL url = new URL(pdfUrl);
             InputStream inputStream = url.openStream();
             PDDocument document = PDDocument.load(inputStream);
@@ -155,10 +171,8 @@ public class PrintersController {
             //Configurar atributos de impresión (ejemplo: 1 copia)
             PrintRequestAttributeSet attributes = new HashPrintRequestAttributeSet();
             attributes.add(new Copies(1));
-
             //Enviar a imprimir
             job.print(attributes);
-
             document.close();
             return "Documento enviado a la impresora " + printerName;
         } catch (Exception e) {
@@ -180,6 +194,10 @@ public class PrintersController {
     @PostMapping("/printZebra")
     public String printZebra(@RequestBody VinetaRequest request) {
         try {
+            String token = request.getToken();
+            if (!"Sini8fiuWeib2obug1".equals(token)) {
+                return "Acceso denegado.";
+            }
             String printerName = request.getPrinterName();
             String zplData = request.getZPLcode();
 
