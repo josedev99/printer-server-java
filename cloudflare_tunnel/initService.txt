@@ -1,0 +1,2 @@
+sc create PrinterServer start= auto binPath= "C:\cloudflared\printerServer.exe" DisplayName= PrinterServer
+sc create cloudflaredTunnel start= auto binPath= "C:\cloudflared\initCloudflared.bat" DisplayName= cloudflaredTunnel
