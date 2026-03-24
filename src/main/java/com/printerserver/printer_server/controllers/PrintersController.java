@@ -43,6 +43,14 @@ import javax.print.attribute.HashPrintRequestAttributeSet;
 import javax.print.attribute.PrintRequestAttributeSet;
 import javax.print.attribute.standard.Copies;
 import java.awt.print.PrinterJob;
+import org.apache.pdfbox.io.MemoryUsageSetting;
+
+import java.awt.print.PrinterJob;
+import java.awt.print.Printable;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.awt.print.PageFormat;
+import java.awt.print.Paper;
 
 @RestController
 @RequestMapping("/api")
@@ -144,7 +152,7 @@ public class PrintersController {
             if (!"Sini8fiuWeib2obug1".equals(token)) {
                 return "Acceso denegado.";
             }
-            //Descargar el PDF desde la URL
+
             String pdfUrl = request.getPdfUrl();
             String printerName = request.getPrinterName();
 
@@ -152,30 +160,27 @@ public class PrintersController {
                 return "La URL del PDF no es válida.";
             }
 
-            URL url = new URL(pdfUrl);
-            InputStream inputStream = url.openStream();
-            PDDocument document = PDDocument.load(inputStream);
-
-            //Buscar la impresora por nombre
             PrintService selectedPrinter = findPrinter(printerName);
-
             if (selectedPrinter == null) {
                 return "No se encontró la impresora " + printerName;
             }
 
-            //Configurar el trabajo de impresión
-            PrinterJob job = PrinterJob.getPrinterJob();
-            job.setPrintService(selectedPrinter);
-            job.setPageable(new PDFPageable(document));
+            try (InputStream inputStream = new URL(pdfUrl).openStream();
+                PDDocument document = PDDocument.load(inputStream, MemoryUsageSetting.setupTempFileOnly())) {
 
-            //Configurar atributos de impresión (ejemplo: 1 copia)
-            PrintRequestAttributeSet attributes = new HashPrintRequestAttributeSet();
-            attributes.add(new Copies(1));
-            //Enviar a imprimir
-            job.print(attributes);
-            document.close();
+                PrinterJob job = PrinterJob.getPrinterJob();
+                job.setPrintService(selectedPrinter);
+                job.setPageable(new PDFPageable(document));
+
+                PrintRequestAttributeSet attributes = new HashPrintRequestAttributeSet();
+                attributes.add(new Copies(1));
+
+                job.print(attributes);
+            }
+
             return "Documento enviado a la impresora " + printerName;
         } catch (Exception e) {
+            e.printStackTrace();
             return "Error al imprimir: " + e.getMessage();
         }
     }
@@ -225,6 +230,89 @@ public class PrintersController {
         } catch (Exception e) {
             e.printStackTrace();
             return "Error al imprimir: " + e.getMessage();
+        }
+    }
+
+    @PostMapping("/printTicketPdf")
+    public String printPdfAsImage(@RequestBody PdfRequest request) {
+        try {
+            String token = request.getToken();
+            if (!"Sini8fiuWeib2obug1".equals(token)) {
+                return "Acceso denegado.";
+            }
+
+            String pdfUrl = request.getPdfUrl();
+            String printerName = request.getPrinterName();
+
+            PrintService selectedPrinter = findPrinter(printerName);
+            if (selectedPrinter == null) {
+                return "No se encontró la impresora " + printerName;
+            }
+
+            try (
+                InputStream inputStream = new URL(pdfUrl).openStream();
+                PDDocument document = PDDocument.load(inputStream, MemoryUsageSetting.setupTempFileOnly())
+            ) {
+
+                PDFRenderer renderer = new PDFRenderer(document);
+
+                PrinterJob job = PrinterJob.getPrinterJob();
+                job.setPrintService(selectedPrinter);
+
+                //CONFIGURAR PAPEL 80MM
+                PageFormat pf = job.defaultPage();
+                Paper paper = new Paper();
+
+                double width = 246.77;   // 80mm en puntos
+                double height = 2000;    // alto largo para ticket
+
+                paper.setSize(width, height);
+                paper.setImageableArea(0, 0, width, height);
+
+                pf.setPaper(paper);
+                pf.setOrientation(PageFormat.PORTRAIT);
+
+                job.setPrintable((graphics, pageFormat, pageIndex) -> {
+
+                    if (pageIndex >= document.getNumberOfPages()) {
+                        return Printable.NO_SUCH_PAGE;
+                    }
+
+                    try {
+                        BufferedImage image = renderer.renderImageWithDPI(pageIndex, 300);
+
+                        Graphics2D g2d = (Graphics2D) graphics;
+
+                        double printableWidth = pageFormat.getImageableWidth();
+
+                        //ESCALA REAL
+                        double scale = (printableWidth / image.getWidth()) * 1.06;
+
+                        g2d.translate(
+                            pageFormat.getImageableX(),
+                            pageFormat.getImageableY()
+                        );
+
+                        g2d.scale(scale, scale);
+
+                        g2d.drawImage(image, 0, 0, null);
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return Printable.NO_SUCH_PAGE;
+                    }
+
+                    return Printable.PAGE_EXISTS;
+                }, pf); //IMPORTANTE: pasar PageFormat
+
+                job.print();
+            }
+
+            return "Impresión correcta de ticket";
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error: " + e.getMessage();
         }
     }
 }
